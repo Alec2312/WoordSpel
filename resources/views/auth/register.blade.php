@@ -1,4 +1,8 @@
 <x-guest-layout>
+    <a href="/" class="fixed top-4 left-4 bg-white text-gray-800 font-semibold px-4 py-2 rounded shadow hover:bg-gray-200 transition z-50">
+        Terug naar Home
+    </a>
+
     <div class="flex h-screen items-center justify-center">
         <div
             class="relative w-[80vw] h-[100vh] bg-center bg-no-repeat"
