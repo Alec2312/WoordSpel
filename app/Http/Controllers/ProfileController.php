@@ -12,7 +12,7 @@ use Illuminate\View\View;
 class ProfileController extends Controller
 {
     /**
-     * Display the user's profile form.
+     * Toon het profielbewerkingsformulier.
      */
     public function edit(Request $request): View
     {
@@ -22,23 +22,33 @@ class ProfileController extends Controller
     }
 
     /**
-     * Update the user's profile information.
+     * Werk profielgegevens bij, inclusief profielfoto.
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        // Vul standaardvelden zoals naam, email
+        $user->fill($request->validated());
+
+        // Reset e-mailverificatie bij wijziging
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        // Upload profielfoto
+        if ($request->hasFile('profile')) {
+            $path = $request->file('profile')->store('public/profile_pics');
+            $user->profile = str_replace('public/', 'storage/', $path);
+        }
+
+        $user->save();
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
 
     /**
-     * Delete the user's account.
+     * Verwijder account van de gebruiker.
      */
     public function destroy(Request $request): RedirectResponse
     {
