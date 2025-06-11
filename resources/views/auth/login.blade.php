@@ -9,7 +9,7 @@
             style="background-image: url('/storage/img/explosion.png'); background-size: contain;">
 
             <!-- Session Status -->
-            <x-auth-session-status class="absolute top-[22%] left-1/2 w-80 -translate-x-1/2 mb-4" :status="session('status')" />
+            <x-auth-session-status class="absolute top-[22%] left-1/2 w-80 -translate-x-1/2 mb-4" :status="session('status')"/>
 
             <form method="POST" action="{{ route('login') }}"
                   class="absolute top-1/3 left-1/2 w-80 -translate-x-1/2">
@@ -18,7 +18,8 @@
                 <!-- Email Address -->
                 <div>
                     <x-text-input id="email" class="block mt-1 w-full" type="email" name="email"
-                                  :value="old('email')" required autofocus autocomplete="username" placeholder="E-mail"/>
+                                  :value="old('email')" required autofocus autocomplete="username"
+                                  placeholder="E-mail"/>
                     <x-input-error :messages="$errors->get('email')" class="mt-2"/>
                 </div>
 
