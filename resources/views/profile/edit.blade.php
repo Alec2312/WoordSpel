@@ -1,53 +1,86 @@
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Profiel') }}
-        </h2>
-    </x-slot>
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Profiel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="relative min-h-screen font-sans antialiased">
 
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+<!-- Achtergrond split rood/blauw -->
+<div class="fixed inset-0 flex z-0">
+    <div class="w-1/2 bg-[#FD4D4B]"></div>
+    <div class="w-1/2 bg-[#00BBFC]"></div>
+</div>
 
-            {{-- Profielinformatie --}}
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                <div class="max-w-xl">
-                    @include('profile.partials.update-profile-information-form', ['user' => $user])
-                </div>
-            </div>
+<!-- Terug knop -->
+<a href="/" class="fixed top-4 left-4 z-50 bg-white/90 backdrop-blur-md px-4 py-2 rounded-md font-semibold shadow hover:bg-white transition">
+    Terug naar Home
+</a>
 
-            {{-- Wachtwoord wijzigen --}}
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                <div class="max-w-xl">
-                    @include('profile.partials.update-password-form')
-                </div>
-            </div>
+<!-- Content -->
+<main class="relative z-10 flex flex-col items-center justify-start min-h-[2400px] pt-24 px-4 sm:px-6 lg:px-8 space-y-12 mx-auto">
 
-            {{-- Profielfoto upload --}}
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                <div class="max-w-xl space-y-4">
-                    <h2 class="text-lg font-medium text-gray-900">Profielfoto</h2>
+    <header class="text-center">
+        <h1 class="text-3xl font-bold text-white drop-shadow-md">Profiel</h1>
+    </header>
 
-                    @if ($user->profile)
-                        <img src="{{ asset($user->profile) }}" class="w-32 h-32 rounded-full object-cover mb-4" alt="Profielfoto">
-                    @endif
-
-                    <form method="POST" action="{{ route('profile.photo.update') }}" enctype="multipart/form-data">
-                        @csrf
-                        @method('PATCH')
-
-                        <input type="file" name="profile" required class="block mb-4">
-                        <x-primary-button>Upload</x-primary-button>
-                    </form>
-                </div>
-            </div>
-
-            {{-- Account verwijderen --}}
-            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                <div class="max-w-xl">
-                    @include('profile.partials.delete-user-form')
-                </div>
-            </div>
-
+    {{-- Profielinformatie --}}
+    <section
+        class="relative rounded-xl overflow-hidden w-full min-h-[700px] flex items-center justify-center p-12"
+        style="background: url('/storage/img/explosion.png') center center / contain no-repeat;"
+    >
+        <div class="relative z-10 max-w-md w-80 text-white drop-shadow-lg">
+            @include('profile.partials.update-profile-information-form', ['user' => $user])
         </div>
-    </div>
-</x-app-layout>
+    </section>
+
+    {{-- Wachtwoord wijzigen --}}
+    <section
+        class="relative rounded-xl overflow-hidden w-full min-h-[700px] flex items-center justify-center p-12"
+        style="background: url('/storage/img/explosion.png') center center / contain no-repeat;"
+    >
+        <div class="relative z-10 max-w-md w-80 text-white drop-shadow-lg">
+            @include('profile.partials.update-password-form')
+        </div>
+    </section>
+
+    {{-- Profielfoto upload --}}
+    <section
+        class="relative rounded-xl overflow-hidden w-full min-h-[700px] flex items-center justify-center p-12"
+        style="background: url('/storage/img/explosion.png') center center / contain no-repeat;"
+    >
+        <div class="relative z-10 max-w-md w-80 text-white drop-shadow-lg space-y-6 text-center">
+            <h2 class="text-xl font-bold">Profielfoto</h2>
+
+            @if ($user->profile)
+                <img src="{{ asset($user->profile) }}" class="w-32 h-32 rounded-full object-cover mx-auto mb-4" alt="Profielfoto">
+            @endif
+
+            <form method="POST" action="{{ route('profile.photo.update') }}" enctype="multipart/form-data">
+                @csrf
+                @method('PATCH')
+
+                <input type="file" name="profile" required class="block mb-4 mx-auto">
+                <button type="submit" class="w-full py-3 bg-white text-gray-900 rounded-md hover:bg-gray-300 focus:bg-gray-700 transition font-semibold">
+                    Upload
+                </button>
+            </form>
+        </div>
+    </section>
+
+    {{-- Account verwijderen --}}
+    <section
+        class="relative rounded-xl overflow-hidden w-full min-h-[700px] flex items-center justify-center p-12"
+        style="background: url('/storage/img/explosion.png') center center / contain no-repeat;"
+    >
+        <div class="relative z-10 max-w-md w-80 text-white drop-shadow-lg text-center space-y-6">
+            @include('profile.partials.delete-user-form')
+        </div>
+    </section>
+
+</main>
+
+</body>
+</html>
