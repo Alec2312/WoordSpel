@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,6 +10,7 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
+    // Voeg 'profile' toe hier:
     protected $fillable = ['name', 'email', 'password', 'profile'];
 
     protected $hidden = ['password', 'remember_token'];
@@ -39,15 +41,5 @@ class User extends Authenticatable
     public function gamesInTurn()
     {
         return $this->hasMany(Game::class, 'current_turn');
-    }
-
-    public function friends()
-    {
-        return $this->belongsToMany(User::class, 'user_friends', 'user_id', 'friend_id');
-    }
-
-    public function friendOf()
-    {
-        return $this->belongsToMany(User::class, 'user_friends', 'friend_id', 'user_id');
     }
 }

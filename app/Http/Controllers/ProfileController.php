@@ -2,69 +2,103 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ProfileUpdateRequest;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules;
 
 class ProfileController extends Controller
 {
     /**
-     * Toon het profielbewerkingsformulier.
+     * Toon profielpagina met user-variabele.
      */
-    public function edit(Request $request): View
+    public function edit()
     {
         return view('profile.edit', [
-            'user' => $request->user(),
+            'user' => auth()->user(),
         ]);
     }
 
     /**
-     * Werk profielgegevens bij, inclusief profielfoto.
+     * Update naam en e-mail.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(Request $request)
     {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+        ]);
+
         $user = $request->user();
 
-        // Vul standaardvelden zoals naam, email
-        $user->fill($request->validated());
+        $user->update([
+            'name' => $request->name,
+            'email' => $request->email,
+        ]);
 
-        // Reset e-mailverificatie bij wijziging
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
-        }
-
-        // Upload profielfoto
-        if ($request->hasFile('profile')) {
-            $path = $request->file('profile')->store('public/profile_pics');
-            $user->profile = str_replace('public/', 'storage/', $path);
-        }
-
-        $user->save();
-
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        return back()->with('status', 'Profiel bijgewerkt.');
     }
 
     /**
-     * Verwijder account van de gebruiker.
+     * Update wachtwoord.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function updatePassword(Request $request)
     {
-        $request->validateWithBag('userDeletion', [
+        $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        $user = $request->user();
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return back()->with('status', 'Wachtwoord gewijzigd.');
+    }
+
+    /**
+     * Profielfoto uploaden/vervangen.
+     */
+    public function updateProfilePhoto(Request $request)
+    {
+        $request->validate([
+            'profile' => ['required', 'image', 'max:2048'],
+        ]);
+
+        $user = $request->user();
+
+        if ($user->profile) {
+            $old = str_replace('storage/', '', $user->profile);
+            if (Storage::disk('public')->exists($old)) {
+                Storage::disk('public')->delete($old);
+            }
+        }
+
+        $path = $request->file('profile')->store('profile_photos', 'public');
+        $user->profile = 'storage/' . $path;
+        $user->save();
+
+        return redirect()->route('profile.edit')->with('status', 'Profielfoto geüpload.');
+    }
+
+    /**
+     * Verwijder account.
+     */
+    public function destroy(Request $request)
+    {
+        $request->validate([
             'password' => ['required', 'current_password'],
         ]);
 
         $user = $request->user();
 
         Auth::logout();
-
         $user->delete();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return Redirect::to('/');
+        return redirect('/')->with('status', 'Account verwijderd.');
     }
 }
