@@ -2,13 +2,14 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\GameController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    return redirect('/');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
@@ -17,9 +18,12 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
     Route::patch('/profile/photo', [ProfileController::class, 'updateProfilePhoto'])->name('profile.photo.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Connect Four Spelroutes
+    Route::get('/game', [GameController::class, 'show'])->name('game.show');
+    // De move route moet een POST zijn om de formulierdata te ontvangen
+    Route::post('/game/move', [GameController::class, 'move'])->name('game.move');
+    Route::get('/game/restart', [GameController::class, 'restart'])->name('game.restart');
 });
-
-Route::get('/game', [\App\Http\Controllers\GameController::class, 'index'])->name('game');
-
 
 require __DIR__.'/auth.php';

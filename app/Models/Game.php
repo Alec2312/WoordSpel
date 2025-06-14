@@ -3,24 +3,41 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo; // Voeg dit toe
 
 class Game extends Model
 {
-    protected $fillable = ['status', 'winner_id', 'current_turn'];
+    public const PLAYER_COLORS = ['Blue', 'Red'];
+    public const ROWS = 6;
+    public const COLUMNS = 7;
 
-    public function winner() {
-        return $this->belongsTo(User::class, 'winner_id');
+    protected $fillable = [
+        'user_id',
+        'opponent_id',
+        'status',
+        'current_player_color',
+        'board_state',
+        'message',
+        'guest_player_score', // **TOEGEVOEGD: Nodig voor opslag**
+    ];
+
+    protected $casts = [
+        'board_state' => 'array',
+    ];
+
+    /**
+     * Relatie: Een spel behoort toe aan een gebruiker (Speler 1).
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function currentPlayer() {
-        return $this->belongsTo(User::class, 'current_turn');
-    }
-
-    public function players() {
-        return $this->hasMany(GamePlayer::class);
-    }
-
-    public function cells() {
-        return $this->hasMany(Cell::class);
+    /**
+     * Relatie: Een spel kan een tegenstander hebben (Speler 2).
+     */
+    public function opponent(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'opponent_id');
     }
 }

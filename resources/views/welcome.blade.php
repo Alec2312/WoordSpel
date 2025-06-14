@@ -17,17 +17,14 @@
             <!-- Linker kolom: Profiel -->
             <div class="w-1/3 bg-[#FD4D4B] flex items-center justify-center"> {{-- Neemt 1/3 van de breedte in --}}
                 <a href="/profile">
-                    <img
-                        src="/storage/img/profile.png"
-                        alt="Profielfoto"
-                        class="rounded-full w-48 h-48 object-cover shadow-lg cursor-pointer transition hover:brightness-90"
-                    />
+                    <img src="{{ asset(auth()->user()->profile) }}" alt="Profielfoto"
+                         class="rounded-full w-48 h-48 object-cover transition hover:brightness-75 cursor-pointer">
                 </a>
             </div>
 
             <!-- Midden kolom: Play knop -->
             <div class="w-1/3 flex items-center justify-center"> {{-- Neemt 1/3 van de breedte in --}}
-                <a href="{{ route('game') }}">
+                <a href="{{ route('game.show') }}">
                     <img
                         src="/storage/img/play.png"
                         class="max-h-[60vh] max-w-[60vw] transition hover:brightness-75 cursor-pointer"

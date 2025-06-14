@@ -13,12 +13,16 @@ return new class extends Migration
     {
         Schema::create('games', function (Blueprint $table) {
             $table->id();
-            $table->string('status');
-            $table->foreignId('winner_id')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('current_turn')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('opponent_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('status')->default('ongoing');
+            $table->string('current_player_color')->default('Blue');
+            $table->json('board_state')->nullable();
+            $table->string('message')->nullable()->default('');
+            $table->integer('guest_player_score')->default(0);
             $table->timestamps();
         });
-
+        // BELANGRIJK: GEEN ANDERE TABLE CREATIES HIER! ALLEEN games.
     }
 
     /**
@@ -29,3 +33,4 @@ return new class extends Migration
         Schema::dropIfExists('games');
     }
 };
+
