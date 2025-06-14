@@ -13,16 +13,19 @@ return new class extends Migration
     {
         Schema::create('games', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('opponent_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('status')->default('ongoing');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            // opponent_id kan NIET meer nullable zijn, omdat er altijd een geregistreerde opponent is.
+            // Dit kan echter een probleem veroorzaken als je bestaande games hebt met opponent_id = NULL.
+            // Voor nu laten we het nullable als je bestaande data hebt, maar conceptueel is het nu altijd gevuld.
+            // Als je een frisse database start, kun je ->nullable() hier weghalen.
+            $table->foreignId('opponent_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->json('board_state');
             $table->string('current_player_color')->default('Blue');
-            $table->json('board_state')->nullable();
-            $table->string('message')->nullable()->default('');
-            $table->integer('guest_player_score')->default(0);
+            $table->string('status')->default('ongoing');
+            $table->string('message')->nullable();
+            // `guest_player_score` is niet aanwezig
             $table->timestamps();
         });
-        // BELANGRIJK: GEEN ANDERE TABLE CREATIES HIER! ALLEEN games.
     }
 
     /**
@@ -33,4 +36,3 @@ return new class extends Migration
         Schema::dropIfExists('games');
     }
 };
-

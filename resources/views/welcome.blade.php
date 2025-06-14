@@ -24,7 +24,7 @@
 
             <!-- Midden kolom: Play knop -->
             <div class="w-1/3 flex items-center justify-center"> {{-- Neemt 1/3 van de breedte in --}}
-                <a href="{{ route('game.show') }}">
+                <a href="{{ route('game.select-opponent') }}">
                     <img
                         src="/storage/img/play.png"
                         class="max-h-[60vh] max-w-[60vw] transition hover:brightness-75 cursor-pointer"

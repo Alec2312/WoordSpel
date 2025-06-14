@@ -7,7 +7,7 @@ use App\Models\Game;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Session; // Importeer Session
+use Illuminate\Support\Facades\Session;
 
 class GameController extends Controller
 {
@@ -16,21 +16,42 @@ class GameController extends Controller
      */
     public function show()
     {
-        $game = Game::where('user_id', Auth::id())
-            ->where('status', 'ongoing')
-            ->first();
+        $currentUser = Auth::user();
+        $selectedOpponentId = Session::get('selected_opponent_id');
 
-        if (!$game) {
-            $game = $this->createNewGame(Auth::id());
+        // Geen 'gast' optie meer, dus $selectedOpponentId moet altijd een User ID zijn
+        if (!$selectedOpponentId) {
+            // Als er geen tegenspeler is geselecteerd, stuur direct door om er een te kiezen
+            session()->flash('error', 'Selecteer een tegenspeler om een spel te starten.');
+            return redirect()->route('game.select-opponent');
         }
 
-        // Zorg ervoor dat $currentUser de meest recente data bevat
-        $currentUser = Auth::user();
+        $opponent = User::find($selectedOpponentId);
+        if (!$opponent) {
+            // Als de gekozen opponent niet bestaat, reset de sessie en stuur terug
+            Session::forget('selected_opponent_id');
+            session()->flash('error', 'De gekozen tegenspeler is niet meer beschikbaar. Kies opnieuw.');
+            return redirect()->route('game.select-opponent');
+        }
 
-        // Haal de gastscore op uit de sessie, standaard 0
-        $guestTotalScore = Session::get('guest_total_score', 0);
+        $opponentTotalScore = $opponent->points;
 
-        return view('game', compact('game', 'currentUser', 'guestTotalScore')); // Geef guestTotalScore mee aan de view
+        // Zoek of creëer een actieve game met de huidige gebruiker en de geselecteerde tegenspeler
+        $game = Game::where('user_id', Auth::id())
+            ->where('status', 'ongoing')
+            ->where('opponent_id', $opponent->id) // Altijd een opponent_id
+            ->first();
+
+        // Als er geen actieve game is, maak dan een nieuwe aan
+        if (!$game) {
+            $game = $this->createNewGame(Auth::id(), $opponent->id);
+        }
+
+        // Geef de constanten voor het bord door aan de view
+        $boardColumns = Game::COLUMNS;
+        $boardRows = Game::ROWS;
+
+        return view('game', compact('game', 'currentUser', 'opponent', 'opponentTotalScore', 'boardColumns', 'boardRows'));
     }
 
     /**
@@ -52,6 +73,11 @@ class GameController extends Controller
             return redirect()->route('game.show');
         }
 
+        if (Auth::id() !== $game->user_id && Auth::id() !== $game->opponent_id) {
+            session()->flash('error', 'Je bent niet geautoriseerd om in dit spel te zetten.');
+            return redirect()->route('game.show');
+        }
+
         $currentPlayerColor = $game->current_player_color;
         $board = $game->board_state ?? [];
 
@@ -62,7 +88,6 @@ class GameController extends Controller
         $column = $request->column;
 
         $placed_checker = false;
-        // Vind de laagste lege rij in de gekozen kolom
         for ($i = 0; $i < Game::ROWS; $i++) {
             if ($board[$i][$column] === '') {
                 $board[$i][$column] = $currentPlayerColor;
@@ -87,18 +112,18 @@ class GameController extends Controller
                 $resultMessage = $currentPlayerColor . " heeft gewonnen!";
                 $game->status = 'finished';
 
-                if ($currentPlayerColor === 'Blue') { // Speler 1 (ingelogde gebruiker) heeft gewonnen
+                if ($currentPlayerColor === 'Blue') {
                     $winner = User::find($game->user_id);
                     if ($winner) {
                         $winner->increment('points', $pointsAwarded);
                         $resultMessage .= " " . $winner->name . " krijgt " . $pointsAwarded . " punt!";
                     }
-                } else { // Speler 2 (gastspeler) heeft gewonnen
-                    // Increment de guest_total_score in de sessie (niet persistent over sessies)
-                    $currentGuestScore = Session::get('guest_total_score', 0);
-                    Session::put('guest_total_score', $currentGuestScore + $pointsAwarded);
-
-                    $resultMessage .= " Speler 2 (Rood) krijgt " . $pointsAwarded . " punt!";
+                } else {
+                    $winner = User::find($game->opponent_id); // Altijd een User
+                    if ($winner) {
+                        $winner->increment('points', $pointsAwarded);
+                        $resultMessage .= " " . $winner->name . " krijgt " . $pointsAwarded . " punt!";
+                    }
                 }
             } else {
                 $boardIsFull = true;
@@ -122,6 +147,35 @@ class GameController extends Controller
             $game->save();
         });
 
+        return redirect()->route('game.show');
+    }
+
+    /**
+     * Start een nieuw spel en sla het op in de database.
+     */
+    public function restart()
+    {
+        $selectedOpponentId = Session::get('selected_opponent_id');
+        if (!$selectedOpponentId) {
+            session()->flash('error', 'Geen tegenspeler geselecteerd om opnieuw te starten.');
+            return redirect()->route('game.select-opponent');
+        }
+        $this->createNewGame(Auth::id(), $selectedOpponentId);
+        return redirect()->route('game.show');
+    }
+
+    /**
+     * NIEUWE METHODE: Maakt het bord leeg en start een nieuw spel.
+     */
+    public function clearBoard()
+    {
+        $selectedOpponentId = Session::get('selected_opponent_id');
+        if (!$selectedOpponentId) {
+            session()->flash('error', 'Geen tegenspeler geselecteerd om het bord leeg te maken.');
+            return redirect()->route('game.select-opponent');
+        }
+        $this->createNewGame(Auth::id(), $selectedOpponentId); // Dit maakt een nieuw, leeg spel aan
+        session()->flash('message', 'Het bord is leeggemaakt. Een nieuw spel is gestart!');
         return redirect()->route('game.show');
     }
 
@@ -193,33 +247,50 @@ class GameController extends Controller
     }
 
     /**
-     * Start een nieuw spel en sla het op in de database.
-     */
-    public function restart()
-    {
-        $this->createNewGame(Auth::id());
-        return redirect()->route('game.show');
-    }
-
-    /**
      * Hulpmethode om een nieuw spel aan te maken.
      */
-    private function createNewGame(int $userId): Game
+    private function createNewGame(int $userId, int $opponentId): Game
     {
-        // Abort alle lopende games van deze gebruiker
+        // Abort alle lopende games van deze gebruiker MET DEZELFDE TEGENSPELER
         Game::where('user_id', $userId)
             ->where('status', 'ongoing')
+            ->where('opponent_id', $opponentId)
             ->update(['status' => 'aborted']);
 
         $game = new Game();
         $game->user_id = $userId;
+        $game->opponent_id = $opponentId;
         $game->status = 'ongoing';
         $game->current_player_color = 'Blue';
         $game->board_state = array_fill(0, Game::ROWS, array_fill(0, Game::COLUMNS, ''));
         $game->message = '';
-        $game->guest_player_score = 0; // Deze blijft 0, want dit is de score voor DIT SPECIFIEKE SPEL
         $game->save();
 
         return $game;
+    }
+
+    /**
+     * Reset de scores van de huidige gebruiker en de geselecteerde tegenspeler.
+     */
+    public function resetScores(Request $request)
+    {
+        $currentUser = Auth::user();
+        $selectedOpponentId = Session::get('selected_opponent_id'); // Nodig om de opponent te vinden
+
+        DB::transaction(function () use ($currentUser, $selectedOpponentId) {
+            $currentUser->points = 0;
+            $currentUser->save();
+
+            if ($selectedOpponentId) {
+                $opponent = User::find($selectedOpponentId);
+                if ($opponent) {
+                    $opponent->points = 0;
+                    $opponent->save();
+                }
+            }
+        });
+
+        session()->flash('message', 'Scores zijn gereset!');
+        return redirect()->route('game.show');
     }
 }
