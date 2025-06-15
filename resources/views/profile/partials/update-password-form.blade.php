@@ -1,47 +1,53 @@
-<section>
-    <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Update Password') }}
-        </h2>
-
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __('Ensure your account is using a long, random password to stay secure.') }}
-        </p>
-    </header>
-
-    <form method="post" action="{{ route('password.update') }}" class="mt-6 space-y-6">
+<section class="text-white drop-shadow-lg space-y-6">
+    <form method="post" action="{{ route('password.update') }}" class="space-y-6">
         @csrf
         @method('put')
 
         <div>
-            <x-input-label for="update_password_current_password" :value="__('Current Password')" />
-            <x-text-input id="update_password_current_password" name="current_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
+            <input
+                id="current_password"
+                name="current_password"
+                type="password"
+                placeholder="Huidig wachtwoord"
+                autocomplete="current-password"
+                class="text-gray-900 placeholder-black border-black border-2 rounded-md shadow-sm bg-[#FEC70C] w-full p-3 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+            />
             <x-input-error :messages="$errors->updatePassword->get('current_password')" class="mt-2" />
         </div>
 
         <div>
-            <x-input-label for="update_password_password" :value="__('New Password')" />
-            <x-text-input id="update_password_password" name="password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+            <input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Nieuw wachtwoord"
+                autocomplete="new-password"
+                class="text-gray-900 placeholder-black border-black border-2 rounded-md shadow-sm bg-[#FEC70C] w-full p-3 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+            />
             <x-input-error :messages="$errors->updatePassword->get('password')" class="mt-2" />
         </div>
 
         <div>
-            <x-input-label for="update_password_password_confirmation" :value="__('Confirm Password')" />
-            <x-text-input id="update_password_password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+            <input
+                id="password_confirmation"
+                name="password_confirmation"
+                type="password"
+                placeholder="Bevestig wachtwoord"
+                autocomplete="new-password"
+                class="text-gray-900 placeholder-black border-black border-2 rounded-md shadow-sm bg-[#FEC70C] w-full p-3 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+            />
             <x-input-error :messages="$errors->updatePassword->get('password_confirmation')" class="mt-2" />
         </div>
 
-        <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
+        <div>
+            <button type="submit"
+                    class="w-full py-3 bg-white text-gray-900 rounded-md hover:bg-gray-300 focus:bg-gray-700 transition font-semibold">
+                Wachtwoord wijzigen
+            </button>
 
             @if (session('status') === 'password-updated')
-                <p
-                    x-data="{ show: true }"
-                    x-show="show"
-                    x-transition
-                    x-init="setTimeout(() => show = false, 2000)"
-                    class="text-sm text-gray-600"
-                >{{ __('Saved.') }}</p>
+                <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2000)"
+                   class="text-sm text-white mt-2">{{ __('Opgeslagen.') }}</p>
             @endif
         </div>
     </form>

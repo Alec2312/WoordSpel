@@ -2,3 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 @import "tailwindcss";
+
+input:-webkit-autofill {
+    box-shadow: 0 0 0px 1000px #FEC70C inset !important;
+    -webkit-text-fill-color: black !important;
+}
