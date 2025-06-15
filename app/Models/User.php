@@ -12,7 +12,8 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
+     * De attributen die mass-assignable zijn.
+     * Dit betekent dat ze veilig via een array kunnen worden ingesteld (bijv. User::create($request->all())).
      *
      * @var array<int, string>
      */
@@ -21,11 +22,12 @@ class User extends Authenticatable
         'email',
         'password',
         'profile',
-        'points', // 'points' is hier toegestaan
+        'points',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
+     * De attributen die verborgen moeten worden bij serialisatie (bijv. naar JSON).
+     * Wachtwoorden en remember_token zijn gevoelige gegevens en hoeven niet te worden weergegeven.
      *
      * @var array<int, string>
      */
@@ -35,7 +37,8 @@ class User extends Authenticatable
     ];
 
     /**
-     * The attributes that should be cast.
+     * De attributen die moeten worden gecast naar specifieke PHP-typen.
+     * 'email_verified_at' wordt een DateTime object, 'password' wordt automatisch gehasht.
      *
      * @return array<string, string>
      */
@@ -48,31 +51,9 @@ class User extends Authenticatable
     }
 
     /**
-     * Een gebruiker kan meerdere GamePlayer records hebben.
-     */
-    public function gamePlayers(): HasMany
-    {
-        return $this->hasMany(GamePlayer::class);
-    }
-
-    /**
-     * Een gebruiker kan meerdere Cell records hebben.
-     */
-    public function cells(): HasMany
-    {
-        return $this->hasMany(Cell::class);
-    }
-
-    /**
-     * Een gebruiker kan meerdere spellen gewonnen hebben (als de 'winner_id' van het spel).
-     */
-    public function gamesWon(): HasMany
-    {
-        return $this->hasMany(Game::class, 'winner_id');
-    }
-
-    /**
      * Een gebruiker kan meerdere spellen zijn gestart (als 'user_id').
+     * Dit definieert een 'one-to-many' relatie, waarbij één gebruiker meerdere spellen kan initiëren.
+     * Dit is nuttig om alle spellen te vinden waarbij deze gebruiker de primaire speler was.
      */
     public function gamesAsInitiator(): HasMany
     {
@@ -81,18 +62,11 @@ class User extends Authenticatable
 
     /**
      * Een gebruiker kan meerdere spellen zijn als tegenstander (als 'opponent_id').
+     * Dit definieert ook een 'one-to-many' relatie, voor spellen waarbij de gebruiker de tegenstander was.
+     * Dit is nuttig om alle spellen te vinden waarbij deze gebruiker de tegenspeler was.
      */
     public function gamesAsOpponent(): HasMany
     {
         return $this->hasMany(Game::class, 'opponent_id');
     }
-
-    // `gamesInTurn` relatie is niet direct bruikbaar met `current_player_color` (string),
-    // tenzij je een `current_turn_user_id` kolom zou toevoegen. Voor nu uitgeschakeld.
-    /*
-    public function gamesInTurn(): HasMany
-    {
-        return $this->hasMany(Game::class, 'current_turn');
-    }
-    */
 }

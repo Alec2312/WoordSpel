@@ -17,8 +17,6 @@ class Game extends Model
         'status',
         'current_player_color',
         'board_state',
-        'message',
-        'guest_player_score', // **TOEGEVOEGD: Nodig voor opslag**
     ];
 
     protected $casts = [

@@ -33,6 +33,8 @@ class OpponentSelectionController extends Controller
         $opponentId = $request->opponent_id;
 
         if ($opponentId == Auth::id()) {
+            // Foutmelding voor niet tegen jezelf spelen. Deze is een validatiefout,
+            // dus de `withErrors` blijft staan, aangezien je deze validatie wilt.
             return back()->withErrors(['opponent_id' => 'Je kunt niet tegen jezelf spelen.']);
         }
 
@@ -47,12 +49,11 @@ class OpponentSelectionController extends Controller
             $gameController = new GameController();
 
             // Reset de scores van BEIDE spelers
-            $gameController->resetScores($request); // De request kan leeg zijn, maar het gaat om Auth::user() en Session::get('selected_opponent_id')
+            // Hier moet de $request verwijderd worden, want resetScores verwacht deze niet meer.
+            $gameController->resetScores(); // <-- Aangepast!
 
-            // Maak een nieuw spel (bord leeg)
-            $gameController->clearBoard(); // clearBoard zal automatisch een nieuw spel starten
-
-            session()->flash('message', 'Tegenspeler gewijzigd! Scores zijn gereset en een nieuw spel is gestart.');
+            // Maak een nieuw spel (bord leeg). clearBoard zal automatisch een nieuw spel starten
+            $gameController->clearBoard();
         }
 
         // Redirect naar het spelbord
