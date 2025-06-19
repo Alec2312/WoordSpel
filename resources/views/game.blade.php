@@ -105,7 +105,7 @@
             </div>
             <p class="font-bold text-lg md:text-xl">{{ $opponent->name }} (Rood)</p>
             <p class="text-base md:text-lg">
-                Punten: <span id="opponent-points" class="font-semibold">{{ $opponentTotalScore }}</span>
+                Punten: <span id="opponent-points" class="font-semibold">{{ $opponent->points }}</span>
             </p>
         </div>
     </div>

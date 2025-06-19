@@ -6,58 +6,48 @@ use Illuminate\Http\Request;
 use App\Models\Game;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
-use Illuminate\View\View; // Nodig voor return type declaratie
-use Illuminate\Http\RedirectResponse; // Nodig voor return type declaratie
+use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB; // Nodig voor DB::transaction
 
 class GameController extends Controller
 {
+    // Constant waarden die nodig zijn voor de bordlogica, nu hier gedefinieerd
+    private const ROWS = 6;
+    private const COLUMNS = 7;
+    // de grootte van het speelveld, const zodat de waarde niet veranderd kan worden
+
     /**
      * Toon het spelbord of start een nieuw spel.
      */
     public function show(): View|RedirectResponse
     {
-        /** @var User $currentUser */
-        $currentUser = Auth::user();
-        $selectedOpponentId = Session::get('selected_opponent_id');
+        $currentUser = Auth::user(); // haalt ingelogd user op
+        $selectedOpponentId = Session::get('selected_opponent_id'); // haalt id van gekozen tegenstanders op
 
-        /** @var User|null $opponent */
+        // Controleer of een tegenspeler is geselecteerd
+        if (!$selectedOpponentId) {
+            return redirect()->route('game.select-opponent');
+        }
+
         $opponent = User::find($selectedOpponentId);
 
+        // Als de tegenspeler niet gevonden wordt, leeg de sessie en stuur terug
         if (!$opponent) {
             Session::forget('selected_opponent_id');
             return redirect()->route('game.select-opponent');
         }
 
-        $opponentTotalScore = $opponent->points;
+        // Gebruik de methode in het Game model om het spel te vinden of te starten
+        $game = Game::findOrCreateGame($currentUser->id, $opponent->id);
 
-        $game = Game::firstOrCreate(
-            [
-                'user_id' => Auth::id(),
-                'opponent_id' => $opponent->id,
-                'status' => 'ongoing'
-            ],
-            [
-                'board_state' => array_fill(0, Game::ROWS, array_fill(0, Game::COLUMNS, '')),
-                'current_player_color' => 'Blue',
-                'message' => ''
-            ]
-        );
+        $boardColumns = self::COLUMNS;
+        $boardRows = self::ROWS;
+        // gebruik van de controller constants
+        $boardState = $game->board_state;
 
-        Game::where('user_id', Auth::id())
-            ->where('opponent_id', $opponent->id)
-            ->where('status', 'ongoing')
-            ->where('id', '!=', $game->id)
-            ->update(['status' => 'aborted']);
-
-        $boardColumns = Game::COLUMNS;
-        $boardRows = Game::ROWS;
-
-        // DEFINIEER EN GEEF $boardState NU DIRECT MEE VANUIT DE CONTROLLER
-        $boardState = $game->board_state ?? array_fill(0, Game::ROWS, array_fill(0, Game::COLUMNS, ''));
-
-        return view('game', compact('game', 'currentUser', 'opponent', 'opponentTotalScore', 'boardColumns', 'boardRows', 'boardState'));
+        return view('game', compact('game', 'currentUser', 'opponent', 'boardColumns', 'boardRows', 'boardState'));
     }
 
     /**
@@ -65,61 +55,66 @@ class GameController extends Controller
      */
     public function move(Request $request): RedirectResponse
     {
-        // Valideer de inkomende request data
         $request->validate([
-            'column' => 'required|integer|min:0|max:' . (Game::COLUMNS - 1),
+            'column' => 'required|integer|min:0|max:' . (self::COLUMNS - 1), // kolommen gaan van 0 tot 6
             'game_id' => 'required|exists:games,id',
         ]);
+        // kijken of de inkomende data voldoet aan de eisen hierboven
 
         $game = Game::findOrFail($request->game_id);
+        // probeert een game record te vinden op basis van game_id en geeft anders een fout
 
-        // Spelstatus check: Alleen zetten in een "ongoing" spel toestaan
-        if ($game->status !== 'ongoing') {
-            return redirect()->route('game.show');
-        }
-
-        // Autorisatiecheck: Controleer of de ingelogde gebruiker deel is van dit specifieke spel
+        // controleert of de ingelogde gebruiker deel is van dit specifieke spel
         if (Auth::id() !== $game->user_id && Auth::id() !== $game->opponent_id) {
             return redirect()->route('game.show');
         }
 
-        $currentPlayerColor = $game->current_player_color;
-        // Initialiseer $board als leeg als $game->board_state null is
-        $board = $game->board_state ?? array_fill(0, Game::ROWS, array_fill(0, Game::COLUMNS, ''));
-
-        $column = $request->column;
-
-        // Probeer een fiche te plaatsen met de hulpmethode
-        $placedRow = $this->placeChecker($board, $column, $currentPlayerColor);
-
-        // Redirect als de kolom vol is (geen fiche geplaatst)
-        if ($placedRow === false) { // placeChecker retourneert false als kolom vol is
+        // je mag alleen een zet zetten als een speel "ongoing" is
+        if ($game->status !== 'ongoing') {
             return redirect()->route('game.show');
         }
 
-        DB::transaction(function () use ($game, $board, $currentPlayerColor) {
-            $game->board_state = $board;
-            $game->message = ''; // Leeg de message kolom
+        $column = $request->column;
 
-            // Controleer op winst
+        // De logica voor processMove en de helperfuncties zijn nu hier in de controller
+        return DB::transaction(function () use ($column, $game) {
+            // alle database acties slagen in een keer of mislukken
+            $board = $game->board_state;
+            $currentPlayerColor = $game->current_player_color;
+            // haalt huidige board_state en current_player_color op van de game instantie
+
+            // Probeer een fiche te plaatsen
+            $placedRow = $this->placeChecker($board, $column, $currentPlayerColor);
+
+            if ($placedRow === false) {
+                return redirect()->route('game.show')->with('error', 'Kolom is vol!');
+            }
+
+            $game->board_state = $board;
+            $game->message = '';
+            // past het bord aan met de nieuwe ingevulde plek
+
             $pointsAwarded = 1;
+            // je krijgt 1 punt per ronde die je wint
+
             if ($this->checkWin($board, $currentPlayerColor)) {
                 $game->status = 'finished';
                 // Bepaal de winnaar en ken punten toe
+                $winnerId = ($currentPlayerColor === 'Blue') ? $game->user_id : $game->opponent_id;
                 /** @var User|null $winner */
-                $winner = ($currentPlayerColor === 'Blue') ? User::find($game->user_id) : User::find($game->opponent_id);
-                $winner?->increment('points', $pointsAwarded);
-            } elseif ($this->checkDraw($board)) { // Controleer op gelijkspel (bord vol)
+                $winner = User::find($winnerId); // Dit is een query
+                $winner?->increment('points', $pointsAwarded); // Dit is een query
+                // increment is om het aantal punten van de winnaar te verhogen
+            } elseif ($this->checkDraw($board)) {
                 $game->status = 'tied';
             } else {
                 // Spel gaat verder, wissel van beurt
                 $game->current_player_color = ($currentPlayerColor === 'Blue') ? 'Red' : 'Blue';
             }
 
-            $game->save();
+            $game->save(); // Dit is een query: slaat de gewijzigde game status op in de database
+            return redirect()->route('game.show');
         });
-
-        return redirect()->route('game.show');
     }
 
     /**
@@ -128,24 +123,10 @@ class GameController extends Controller
     public function clearBoard(): RedirectResponse
     {
         $selectedOpponentId = Session::get('selected_opponent_id');
+        $currentUser = Auth::user();
 
-        // Aborteer de huidige 'ongoing' game van deze specifieke gebruiker met deze tegenspeler.
-        // Dit heeft geen effect als $selectedOpponentId null is, wat veilig is.
-        Game::where('user_id', Auth::id())
-            ->where('opponent_id', $selectedOpponentId)
-            ->where('status', 'ongoing')
-            ->update(['status' => 'aborted']);
-
-        // Maak een gloednieuw spel aan. Let op: 'opponent_id' moet een geldige waarde hebben.
-        // De 'show()' methode dwingt dit af voordat de gebruiker de spelpagina kan bereiken.
-        Game::create([
-            'user_id' => Auth::id(),
-            'opponent_id' => $selectedOpponentId,
-            'status' => 'ongoing',
-            'current_player_color' => 'Blue',
-            'board_state' => array_fill(0, Game::ROWS, array_fill(0, Game::COLUMNS, '')),
-            'message' => ''
-        ]);
+        // Roep de methode in het Gamemodel aan (bevat queries)
+        Game::resetAndStartNewGame($currentUser->id, $selectedOpponentId);
 
         return redirect()->route('game.show');
     }
@@ -159,67 +140,69 @@ class GameController extends Controller
         $currentUser = Auth::user();
         $selectedOpponentId = Session::get('selected_opponent_id');
 
-        DB::transaction(function () use ($currentUser, $selectedOpponentId) {
-            $currentUser->points = 0;
-            $currentUser->save();
+        // Roep de methode in het User model aan om scores te resetten (bevat queries)
+        $currentUser->resetPoints();
 
-            if ($selectedOpponentId) {
-                /** @var User|null $opponent */
-                $opponent = User::find($selectedOpponentId);
-                if ($opponent) {
-                    $opponent->points = 0;
-                    $opponent->save();
-                }
-            }
-        });
+        if ($selectedOpponentId) {
+            /** @var User|null $opponent */
+            $opponent = User::find($selectedOpponentId); // Dit is een query
+            $opponent?->resetPoints(); // Bevat queries
+        }
 
         return redirect()->route('game.show');
     }
 
     /**
      * Hulpmethode: Plaats een fiche in de opgegeven kolom.
+     * Dit blijft in de controller omdat het geen database query is, maar bordlogica.
      *
-     * @param array $board De huidige bordstatus
+     * @param array $board De huidige bordstatus (wordt per referentie aangepast)
      * @param int $column De kolom waar het fiche geplaatst moet worden
      * @param string $playerColor De kleur van de speler
      * @return int|bool De rij waar het fiche is geplaatst, of false als de kolom vol is.
      */
     private function placeChecker(array &$board, int $column, string $playerColor): int|bool
     {
-        for ($i = 0; $i < Game::ROWS; $i++) {
+        for ($i = 0; $i < self::ROWS; $i++) {
+            // $i is de onderste rij
             if ($board[$i][$column] === '') {
                 $board[$i][$column] = $playerColor;
                 return $i;
             }
+            // de eerste lege plek die hij vindt in het bord wordt gevuld door de player color
+            // geeft daarna het rijnummer terug
+            // als de hele rijd vol is, dan geeft hij false terug
         }
         return false;
     }
 
     /**
      * Hulpmethode: Controleert het bord op een winnende rij van vier.
+     * Dit blijft in de controller omdat het geen database query is, maar bordlogica.
      */
     private function checkWin(array $board, string $playerColor): bool
     {
-        $rows = Game::ROWS;
-        $cols = Game::COLUMNS;
+        $rows = self::ROWS;
+        $cols = self::COLUMNS;
 
+        // controleert horizontaal, verticaal en diagonaal of een speler gewonnen heeft
         for ($r = 0; $r < $rows; $r++) {
             for ($c = 0; $c < $cols; $c++) {
                 if ($board[$r][$c] === $playerColor) {
                     // Horizontale check
-                    if ($c + 3 < $cols && $board[$r][$c+1] === $playerColor && $board[$r][$c+2] === $playerColor && $board[$r][$c+3] === $playerColor) {
+                    if ($c + 3 < $cols && $board[$r][$c + 1] === $playerColor && $board[$r][$c + 2] === $playerColor && $board[$r][$c + 3] === $playerColor) {
                         return true;
                     }
                     // Verticale check
-                    if ($r + 3 < $rows && $board[$r+1][$c] === $playerColor && $board[$r+2][$c] === $playerColor && $board[$r+3][$c] === $playerColor) {
+                    if ($r + 3 < $rows && $board[$r + 1][$c] === $playerColor && $board[$r + 2][$c] === $playerColor && $board[$r + 3][$c] === $playerColor) {
                         return true;
                     }
                     // Diagonale check (rechtsboven naar linksonder)
-                    if ($r + 3 < $rows && $c + 3 < $cols && $board[$r+1][$c+1] === $playerColor && $board[$r+2][$c+2] === $playerColor && $board[$r+3][$c+3] === $playerColor) {
+                    if ($r + 3 < $rows && $c + 3 < $cols && $board[$r + 1][$c + 1] === $playerColor && $board[$r + 2][$c + 2] === $playerColor && $board[$r + 3][$c + 3] === $playerColor) {
                         return true;
                     }
                     // Diagonale check (rechtsonder naar linksboven)
-                    if ($r - 3 >= 0 && $c + 3 < $cols && $board[$r-1][$c+1] === $playerColor && $board[$r-2][$c+2] === $playerColor && $board[$r-3][$c+3] === $playerColor) {
+                    if ($r - 3 >= 0 && $c + 3 < $cols && $board[$r - 1][$c + 1] === $playerColor && $board[$r - 2][$c + 2] === $playerColor && $board[$r - 3][$c + 3] === $playerColor) {
                         return true;
                     }
                 }
@@ -230,14 +213,17 @@ class GameController extends Controller
 
     /**
      * Hulpmethode: Controleert of het bord vol is (gelijkspel).
+     * Dit blijft in de controller omdat het geen database query is, maar bordlogica.
      */
     private function checkDraw(array $board): bool
     {
         foreach ($board as $row) {
             if (in_array('', $row)) {
-                return false; // Er is nog een lege plek
+                return false;
             }
         }
-        return true; // Bord is vol
+        return true;
+        // dit kijkt of er nog lege plekken op het bord zijn
+        // en als er geen lege plekken zijn en er geen winnaar is dan is het gelijkspel
     }
 }
