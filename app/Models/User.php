@@ -13,7 +13,6 @@ class User extends Authenticatable
 
     /**
      * De attributen die mass-assignable zijn.
-     * Dit betekent dat ze veilig via een array kunnen worden ingesteld (bijv. User::create($request->all())).
      *
      * @var array<int, string>
      */
@@ -22,12 +21,11 @@ class User extends Authenticatable
         'email',
         'password',
         'profile',
-        'points',
+        'points', // Zorg ervoor dat 'points' hierin staat
     ];
 
     /**
-     * De attributen die verborgen moeten worden bij serialisatie (bijv. naar JSON).
-     * Wachtwoorden en remember_token zijn gevoelige gegevens en hoeven niet te worden weergegeven.
+     * De attributen die verborgen moeten worden bij serialisatie.
      *
      * @var array<int, string>
      */
@@ -38,7 +36,6 @@ class User extends Authenticatable
 
     /**
      * De attributen die moeten worden gecast naar specifieke PHP-typen.
-     * 'email_verified_at' wordt een DateTime object, 'password' wordt automatisch gehasht.
      *
      * @return array<string, string>
      */
@@ -52,8 +49,6 @@ class User extends Authenticatable
 
     /**
      * Een gebruiker kan meerdere spellen zijn gestart (als 'user_id').
-     * Dit definieert een 'one-to-many' relatie, waarbij één gebruiker meerdere spellen kan initiëren.
-     * Dit is nuttig om alle spellen te vinden waarbij deze gebruiker de primaire speler was.
      */
     public function gamesAsInitiator(): HasMany
     {
@@ -62,11 +57,19 @@ class User extends Authenticatable
 
     /**
      * Een gebruiker kan meerdere spellen zijn als tegenstander (als 'opponent_id').
-     * Dit definieert ook een 'one-to-many' relatie, voor spellen waarbij de gebruiker de tegenstander was.
-     * Dit is nuttig om alle spellen te vinden waarbij deze gebruiker de tegenspeler was.
      */
     public function gamesAsOpponent(): HasMany
     {
         return $this->hasMany(Game::class, 'opponent_id');
+    }
+
+    /**
+     * **DEZE METHODE IS HIER BELANGRIJK!**
+     * Reset de punten van de gebruiker naar 0.
+     */
+    public function resetPoints(): void
+    {
+        $this->points = 0;
+        $this->save();
     }
 }

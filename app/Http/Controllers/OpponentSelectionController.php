@@ -4,25 +4,25 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Game; // Make sure to import the Game model
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
-use App\Http\Controllers\GameController; // Importeer de GameController
 
 class OpponentSelectionController extends Controller
 {
     /**
-     * Toon de pagina voor het kiezen van een tegenspeler.
+     * Display the opponent selection page.
      */
     public function show()
     {
-        // Haal alle gebruikers op behalve de ingelogde gebruiker zelf
+        // Fetch all users except the currently authenticated user
         $users = User::where('id', '!=', Auth::id())->get();
 
         return view('select-opponent', compact('users'));
     }
 
     /**
-     * Verwerk de gekozen tegenspeler en start een nieuw spel.
+     * Process the chosen opponent and potentially start a new game.
      */
     public function setOpponent(Request $request)
     {
@@ -30,33 +30,37 @@ class OpponentSelectionController extends Controller
             'opponent_id' => 'required|exists:users,id',
         ]);
 
-        $opponentId = $request->opponent_id;
+        $opponentId = (int) $request->opponent_id; // Cast to int for strict comparison
 
-        if ($opponentId == Auth::id()) {
-            // Foutmelding voor niet tegen jezelf spelen. Deze is een validatiefout,
-            // dus de `withErrors` blijft staan, aangezien je deze validatie wilt.
+        if ($opponentId === Auth::id()) {
+            // Error message for not playing against yourself. This is a validation error,
+            // so `withErrors` remains appropriate here.
             return back()->withErrors(['opponent_id' => 'Je kunt niet tegen jezelf spelen.']);
         }
 
-        // Krijg de huidige geselecteerde tegenstander voor vergelijking
         $currentSelectedOpponentId = Session::get('selected_opponent_id');
 
-        // Sla de gekozen tegenspeler-ID op in de sessie
+        // Store the chosen opponent ID in the session
         Session::put('selected_opponent_id', $opponentId);
 
-        // ALS DE TEGENSTANDER VERANDERT, RESET DAN BORD EN SCORES
-        if ($currentSelectedOpponentId !== (int)$opponentId) { // Cast naar int voor veilige vergelijking
-            $gameController = new GameController();
+        // IF THE OPPONENT CHANGES, RESET BOARD AND SCORES
+        if ($currentSelectedOpponentId !== $opponentId) {
+            /** @var User $currentUser */
+            $currentUser = Auth::user();
 
-            // Reset de scores van BEIDE spelers
-            // Hier moet de $request verwijderd worden, want resetScores verwacht deze niet meer.
-            $gameController->resetScores(); // <-- Aangepast!
+            // Reset points for the current user using the method in the User model
+            $currentUser->resetPoints();
 
-            // Maak een nieuw spel (bord leeg). clearBoard zal automatisch een nieuw spel starten
-            $gameController->clearBoard();
+            // Fetch the opponent to reset their points
+            /** @var User|null $opponent */
+            $opponent = User::find($opponentId);
+            $opponent?->resetPoints(); // Use null-safe operator if opponent might be null
+
+            // Create a new game (clear board) using the static method in the Game model
+            Game::resetAndStartNewGame($currentUser->id, $opponentId);
         }
 
-        // Redirect naar het spelbord
+        // Redirect to the game board
         return redirect()->route('game.show');
     }
 }
