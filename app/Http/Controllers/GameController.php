@@ -45,6 +45,9 @@ class GameController extends Controller
         $boardColumns = self::COLUMNS;
         $boardRows = self::ROWS;
         // gebruik van de controller constants
+
+        // self is om toegang te krijgen tot methoden of constanten binnen de klasse zelf
+        // zonder een object van de klasse te maken
         $boardState = $game->board_state;
 
         return view('game', compact('game', 'currentUser', 'opponent', 'boardColumns', 'boardRows', 'boardState'));

@@ -4,11 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\DB;
 
 class Game extends Model
 {
-    public const PLAYER_COLORS = ['Blue', 'Red'];
     public const ROWS = 6;
     public const COLUMNS = 7;
 
